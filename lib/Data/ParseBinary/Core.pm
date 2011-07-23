@@ -19,21 +19,34 @@ sub _get_name {
     return $self->{Name};
 }
 
+sub _return_parse {
+    my ($self, $hashref) = @_;
+    return unless $hashref;
+    return unless %$hashref;
+    if (1 == keys %$hashref) {
+        my ($results) = values %$hashref;
+        return $results;
+    }
+    return $hashref;
+}
+
 sub parse {
     my ($self, $data) = @_;
     my $stream = Data::ParseBinary::Stream::Reader::CreateStreamReader($data);
     my $parser = Data::ParseBinary::Parser->new();
     $parser->push_stream($stream);
-    my $results;
+    my %hash;
     eval {
-        $results = $parser->_parse($self);
+        $parser->_parse($self, \%hash);
     };
-    return $results unless $@;
-    confess $parser->_informative_exception($@);
+    if ($@) {
+        confess $parser->_informative_exception($@);
+    }
+    return $self->_return_parse(\%hash)
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     die "Bad Shmuel: sub _parse was not implemented for " . ref($self);
 }
 
@@ -84,8 +97,8 @@ sub subcon {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
-    return $parser->_parse($self->{subcon});
+    my ($self, $parser, $stream, $hashref) = @_;
+    $parser->_parse($self->{subcon}, $hashref);
 }
 
 sub _build {
@@ -113,10 +126,11 @@ sub _init {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
-    my $value = $self->SUPER::_parse($parser, $stream);
-    my $tvalue = $self->_decode($value);
-    return $tvalue;
+    my ($self, $parser, $stream, $hashref) = @_;
+    my %hash;
+    $self->SUPER::_parse($parser, $stream, \%hash);
+    my $tvalue = $self->_decode(values %hash);
+    $hashref->{$self->_get_name()} = $tvalue;
 }
 
 sub _build {
@@ -183,8 +197,8 @@ sub new {
         my $after = sub {
             $tab -= 3;
         };
-        push @{ $parser->{$HOOK_BEFORE_ACTION} }, $before;
-        push @{ $parser->{$HOOK_AFTER_ACTION}  }, $after;
+        push @{ $self->{$HOOK_BEFORE_ACTION} }, $before;
+        push @{ $self->{$HOOK_AFTER_ACTION}  }, $after;
     }
 
     return bless $self, $class;
@@ -273,23 +287,22 @@ sub _build {
 }
 
 sub _parse {
-    my ($self, $construct) = @_;
+    my ($self, $construct, $hashref) = @_;
     my $streams_count = @{ $self->{streams} };
     push @{ $self->{$OBJECT_STACK} }, $construct;
     foreach my $hba ( @{ $self->{$HOOK_BEFORE_ACTION} } ) {
         $hba->($self, $construct, undef);
     }
 
-    my $data = $construct->_parse($self, $self->{streams}->[0]);
+    $construct->_parse($self, $self->{streams}->[0], $hashref);
 
     foreach my $hba ( @{ $self->{$HOOK_AFTER_ACTION} } ) {
-        $hba->($self, $construct, $data);
+        $hba->($self, $construct, $hashref);
     }
     pop @{ $self->{$OBJECT_STACK} };
     if ($streams_count < @{ $self->{streams} }) {
         splice( @{ $self->{streams} }, 0, @{ $self->{streams} } - $streams_count, ());
     }
-    return $data;
 }
 
 sub _informative_exception {

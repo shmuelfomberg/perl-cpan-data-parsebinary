@@ -11,22 +11,19 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $hash = {};
     $parser->push_ctx($hash);
     my $w_stream = Data::ParseBinary::Stream::StringBufferReader->new($stream);
     $parser->push_stream($w_stream);
     my $pos = $w_stream->tell();
     foreach my $sub (@{ $self->{subcons} }) {
-        my $name = $sub->_get_name();
-        my $value = $parser->_parse($sub);
+        $parser->_parse($sub, $hash);
         $w_stream->seek($pos);
-        next unless defined $name;
-        $hash->{$name} = $value;
     }
     $w_stream->ReadBytes($self->{size});
     $parser->pop_ctx();
-    return $hash;
+    $hashref->{$self->_get_name()} = $hash;
 }
 
 sub _union_build {
@@ -99,25 +96,22 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $orig_pos = $stream->tell();
-    my $upper_hash = $parser->ctx();
     foreach my $sub (@{ $self->{subs} }) {
         $stream->seek($orig_pos);
-        my $hash = {};
-        $parser->push_ctx($hash);
+        my %hash;
+        $parser->push_ctx(\%hash);
         $parser->eval_enter();
         my $name = $sub->_get_name();
-        my $value;
         eval {
-            $value = $parser->_parse($sub);
+            $parser->_parse($sub, \%hash);
         };
         $parser->eval_leave();
         $parser->pop_ctx();
         next if $@;
-        $hash->{$name} = $value if defined $name;
-        while (my ($key, $val) = each %$hash) {
-            $upper_hash->{$key} = $val;
+        while (my ($key, $val) = each %hash) {
+            $hashref->{$key} = $val;
         }
         return;
     }
@@ -160,10 +154,10 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $sub_stream = Data::ParseBinary::Stream::Reader::CreateStreamReader($self->{stream_name} => $stream);
     $parser->push_stream($sub_stream);
-    return $parser->_parse($self->{subcon});
+    $parser->_parse($self->{subcon}, $hashref);
 }
 
 sub _build {
@@ -184,11 +178,11 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     if ($parser->runCodeRef($self->{condition})) {
-        return $self->SUPER::_parse($parser, $stream);
+        $self->SUPER::_parse($parser, $stream, $hashref);
     } else {
-        return $parser->_parse($self->{subcon});
+        $parser->_parse($self->{subcon}, $hashref);
     }
 }
 
@@ -213,6 +207,7 @@ sub create {
 
 sub _parse {
     my ($self, $parser, $stream) = @_;
+    # FIXME
     my $inter = $parser->_parse($self->{subcon});
     my $inter_stream = Data::ParseBinary::StringStreamReader->new($inter);
     return $parser->_parse($self->{inner_subcon});
@@ -238,13 +233,12 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $pos = $stream->tell();
     my $distance = $parser->runCodeRef($self->{distance});
     $stream->seek($pos + $distance);
-    my $res = $parser->_parse($self->{subcon});
+    my $res = $parser->_parse($self->{subcon}, $hashref);
     $stream->seek($pos);
-    return $res;
 }
 
 sub _build {
@@ -269,8 +263,8 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
-    return $parser->runCodeRef($self->{func});
+    my ($self, $parser, $stream, $hashref) = @_;
+    $hashref->{$self->_get_name()} = $parser->runCodeRef($self->{func});
 }
 
 sub _build {
@@ -296,8 +290,8 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
-    return $parser->_parse($parser->runCodeRef($self->{boundfunc}));
+    my ($self, $parser, $stream, $hashref) = @_;
+    $parser->_parse($parser->runCodeRef($self->{boundfunc}), $hashref);
 }
 
 sub _build {
@@ -309,7 +303,7 @@ package Data::ParseBinary::Terminator;
 our @ISA = qw{Data::ParseBinary::BaseConstruct};
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     eval { $stream->ReadBytes(1) };
     if (not $@) {
         die "Terminator expected end of stream";
@@ -359,13 +353,12 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
-    my $newpos = $parser->runCodeRef($self->{posfunc});
+    my ($self, $parser, $stream, $hashref) = @_;
     my $origpos = $stream->tell();
+    my $newpos = $parser->runCodeRef($self->{posfunc});
     $stream->seek($newpos);
-    my $value = $parser->_parse($self->{subcon});
+    $parser->_parse($self->{subcon}, $hashref);
     $stream->seek($origpos);
-    return $value;
 }
 
 sub _build {
@@ -413,10 +406,10 @@ sub _getCont {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $value = $self->_getCont($parser);
     return unless defined $value;
-    return $parser->_parse($value);
+    $parser->_parse($value, $hashref);
 }
 
 sub _build {
@@ -455,9 +448,9 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $data = $stream->ReadBytes($self->{len});
-    return $data;
+    $hashref->{$self->_get_name()} = $data;
 }
 
 sub _build {
@@ -483,10 +476,10 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $len = $parser->runCodeRef($self->{code});
     my $data = $stream->ReadBytes($len);
-    return $data;
+    $hashref->{$self->_get_name()} = $data;
 }
 
 sub _build {
@@ -506,11 +499,11 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $data = $stream->ReadBits($self->{length});
     my $pad_len = 32 - $self->{length};
     my $parsed = unpack "N", pack "B32", ('0' x $pad_len) . $data;
-    return $parsed;
+    $hashref->{$self->_get_name()} = $parsed;
 }
 
 sub _build {
@@ -531,12 +524,12 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $data = $stream->ReadBits($self->{length});
     $data = join '', reverse split '', $data;
     my $pad_len = 32 - $self->{length};
     my $parsed = unpack "N", pack "B32", ('0' x $pad_len) . $data;
-    return $parsed;
+    $hashref->{$self->_get_name()} = $parsed;
 }
 
 sub _build {
@@ -558,7 +551,7 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     if ($stream->isBitStream()) {
         $stream->ReadBits($parser->runCodeRef($self->{count_code}));
     } else {
@@ -599,16 +592,17 @@ sub _shouldStop {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $parent_hash) = @_;
     my $list = [];
     $parser->push_ctx($list);
     while (1) {
-        my $value = $parser->_parse($self->{sub});
-        push @$list, $value;
-        last if $self->_shouldStop($parser, $value);
+        my %hash;
+        $parser->_parse($self->{sub}, \%hash);
+        push @$list, values %hash;
+        last if $self->_shouldStop($parser, values %hash);
     }
     $parser->pop_ctx();
-    return $list;
+    $parent_hash->{$self->_get_name()} = $list;
 }
 
 sub _build {
@@ -639,16 +633,17 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $parent_hash) = @_;
     my $len = $parser->runCodeRef($self->{len_code});
     my $list = [];
     $parser->push_ctx($list);
     for my $ix (1..$len) {
-        my $value = $parser->_parse($self->{sub});
-        push @$list, $value;
+        my %hash;
+        $parser->_parse($self->{sub}, \%hash);
+        push @$list, values %hash;
     }
     $parser->pop_ctx();
-    return $list;
+    $parent_hash->{$self->_get_name()} = $list;
 }
 
 sub _build {
@@ -680,39 +675,39 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $parent_hash) = @_;
     my $list = [];
     $parser->push_ctx($list);
     my $max = $self->{max};
     if (defined $max) {
         for my $ix (1..$max) {
-            my $value;
+            my %hash;
             eval {
-                $value = $parser->_parse($self->{sub});
+                $parser->_parse($self->{sub}, \%hash);
             };
             if ($@) {
                 die $@ if $ix <= $self->{min};
                 last;
             }
-            push @$list, $value;
+            push @$list, values %hash;
         }
     } else {
         my $ix = 0;
         while (1) {
             $ix++;
-            my $value;
+            my %hash;
             eval {
-                $value = $parser->_parse($self->{sub});
+                $parser->_parse($self->{sub}, \%hash);
             };
             if ($@) {
                 die $@ if $ix <= $self->{min};
                 last;
             }
-            push @$list, $value;
+            push @$list, values %hash;
         }
     }
     $parser->pop_ctx();
-    return $list;
+    $parent_hash->{$self->_get_name()} = $list;
 }
 
 sub _build {
@@ -739,17 +734,16 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $parent_hash) = @_;
     my $list = [];
     $parser->push_ctx($list);
     foreach my $sub (@{ $self->{subs} }) {
-        my $name = $sub->_get_name();
-        my $value = $parser->_parse($sub);
-        next unless defined $name;
-        push @$list, $value;
+        my %hash;
+        my $value = $parser->_parse($sub, \%hash);
+        push @$list, values %hash;
     }
     $parser->pop_ctx();
-    return $list;
+    $parent_hash->{$self->_get_name()} = $list;
 }
 
 
@@ -795,17 +789,14 @@ sub create {
 
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $parent_hash) = @_;
     my $hash = {};
     $parser->push_ctx($hash);
     foreach my $sub (@{ $self->{subs} }) {
-        my $name = $sub->_get_name();
-        my $value = $parser->_parse($sub);
-        next unless defined $name;
-        $hash->{$name} = $value;
+        my $value = $parser->_parse($sub, $hash);
     }
     $parser->pop_ctx();
-    return $hash;
+    $parent_hash->{$self->_get_name()} = $hash;
 }
 
 sub _build {
@@ -840,10 +831,10 @@ sub create {
 }
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $data = $stream->ReadBytes($self->{sizeof});
     my $number = unpack $self->{pack_param}, $data;
-    return $number;
+    $hashref->{$self->_get_name()} = $number;
 }
 
 sub _build {
@@ -863,11 +854,11 @@ package Data::ParseBinary::ReveresedPrimitive;
 our @ISA = qw{Data::ParseBinary::Primitive};
 
 sub _parse {
-    my ($self, $parser, $stream) = @_;
+    my ($self, $parser, $stream, $hashref) = @_;
     my $data = $stream->ReadBytes($self->{sizeof});
     my $r_data = join '', reverse split '', $data;
     my $number = unpack $self->{pack_param}, $r_data;
-    return $number;
+    $hashref->{$self->_get_name()} = $number;
 }
 
 sub _build {
