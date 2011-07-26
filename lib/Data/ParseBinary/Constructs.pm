@@ -407,16 +407,18 @@ sub _getCont {
 
 sub _parse {
     my ($self, $parser, $stream, $hashref) = @_;
+    my $hash = {};
+    $hashref->{$self->_get_name()} = $hash;
     my $value = $self->_getCont($parser);
     return unless defined $value;
-    $parser->_parse($value, $hashref);
+    $parser->_parse($value, $hash);
 }
 
 sub _build {
     my ($self, $parser, $stream, $data) = @_;
     my $value = $self->_getCont($parser);
     return unless defined $value;
-    return $parser->_build($value, $data);
+    return $parser->_build($value, $data->{$value->_get_name()});
 }
 
 sub _size_of {

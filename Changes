@@ -1,5 +1,9 @@
 Revision history for Perl extension Data::ParseBinary.
 
+    - Internal changes, causing:
+        - Select in the past returned { data => 5 } ignoring subconstruct's name
+          now it will return { data => { chosen_subconstruct_name => 5 } }
+
 0.29 Dec 4, 2010
 	- Documentation fixes
 

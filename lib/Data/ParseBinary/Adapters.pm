@@ -252,36 +252,6 @@ sub _encode {
     return $value;
 }
 
-#package Data::ParseBinary::StringAdapter;
-#our @ISA = qw{Data::ParseBinary::Adapter};
-#
-#sub _init {
-#    my ($self, $encoding) = @_;
-#    $self->{encoding} = $encoding;
-#}
-#
-#sub _decode {
-#    my ($self, $value) = @_;
-#    my $tvalue;
-#    if ($self->{encoding}) {
-#        die "TODO: Should implement different encodings";
-#    } else {
-#        $tvalue = $value;
-#    }
-#    return $tvalue;
-#}
-#
-#sub _encode {
-#    my ($self, $tvalue) = @_;
-#    my $value;
-#    if ($self->{encoding}) {
-#        die "TODO: Should implement different encodings";
-#    } else {
-#        $value = $tvalue;
-#    }
-#    return $value;
-#}
-
 package Data::ParseBinary::CStringAdapter;
 our @ISA = qw{Data::ParseBinary::Adapter};
 

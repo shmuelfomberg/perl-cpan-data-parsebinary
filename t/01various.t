@@ -231,26 +231,26 @@ $s = Struct("foo",
     ),
     Switch("data", sub { $_->ctx->{type} },
         {
-            "INT1" => UBInt8("spam"),
-            "INT2" => UBInt16("spam"),
-            "INT4" => UBInt32("spam"),
-            "STRING" => String("spam", 6),
+            "INT1" => UBInt8("spam1"),
+            "INT2" => UBInt16("spam2"),
+            "INT4" => UBInt32("spam3"),
+            "STRING" => String("spam4", 6),
         }
     )
 );
-$data = {type => 'INT1', data => 18};
+$data = {type => 'INT1', data => { spam1 => 18 }};
 $string = "\x01\x12";
 is_deeply( $s->parse($string), $data, "Switch: Parse: correct1");
 ok( $s->build($data) eq $string, "Switch: Build: correct1");
-$data = {type => 'INT2', data => 4660};
+$data = {type => 'INT2', data => { spam2 => 4660}};
 $string = "\x02\x12\x34";
 is_deeply( $s->parse($string), $data, "Switch: Parse: correct2");
 ok( $s->build($data) eq $string, "Switch: Build: correct2");
-$data = {type => 'INT4', data => 305419896};
+$data = {type => 'INT4', data => { spam3 => 305419896}};
 $string = "\x03\x12\x34\x56\x78";
 is_deeply( $s->parse($string), $data, "Switch: Parse: correct3");
 ok( $s->build($data) eq $string, "Switch: Build: correct3");
-$data = {type => 'STRING', data => 'abcdef'};
+$data = {type => 'STRING', data => { spam4 => 'abcdef'}};
 $string = "\x04abcdef";
 is_deeply( $s->parse($string), $data, "Switch: Parse: correct4");
 ok( $s->build($data) eq $string, "Switch: Build: correct4");
@@ -259,21 +259,21 @@ $s = Struct("foo",
     Byte("type"),
     Switch("data", sub { $_->ctx->{type} },
         {
-            1 => UBInt8("spam"),
-            2 => UBInt16("spam"),
+            1 => UBInt8("spam1"),
+            2 => UBInt16("spam2"),
         },
-        default => UBInt8("spam")
+        default => UBInt8("defspam")
     )
 );
-$data = {type => 1, data => 255};
+$data = {type => 1, data => {spam1 => 255}};
 $string = "\x01\xff";
 is_deeply( $s->parse($string), $data, "Switch with default: Parse: correct1");
 ok( $s->build($data) eq $string, "Switch with default: Build: correct1");
-$data = {type => 2, data => 65535};
+$data = {type => 2, data => { spam2 => 65535}};
 $string = "\x02\xff\xff";
 is_deeply( $s->parse($string), $data, "Switch with default: Parse: correct2");
 ok( $s->build($data) eq $string, "Switch with default: Build: correct2");
-$data = {type => 3, data => 255};
+$data = {type => 3, data => {defspam => 255}};
 $string = "\x03\xff\xff";  # <-- uses the default construct
 is_deeply( $s->parse($string), $data, "Switch with default: Parse: correct3");
 ok( $s->build($data) eq "\x03\xff", "Switch with default: Build: correct3");
@@ -282,21 +282,21 @@ $s = Struct("foo",
     Byte("type"),
     Switch("data", sub { $_->ctx->{type} },
         {
-            1 => UBInt8("spam"),
-            2 => UBInt16("spam"),
+            1 => UBInt8("spam1"),
+            2 => UBInt16("spam2"),
         },
         default => $DefaultPass,
     )
 );
-$data = {type => 1, data => 255};
+$data = {type => 1, data => {spam1 => 255}};
 $string = "\x01\xff";
 is_deeply( $s->parse($string), $data, "Switch with pass: Parse: correct1");
 ok( $s->build($data) eq $string, "Switch with pass: Build: correct1");
-$data = {type => 2, data => 65535};
+$data = {type => 2, data => {spam2 => 65535}};
 $string = "\x02\xff\xff";
 is_deeply( $s->parse($string), $data, "Switch with pass: Parse: correct2");
 ok( $s->build($data) eq $string, "Switch with pass: Build: correct2");
-$data = {type => 3, data => undef};
+$data = {type => 3, data => {}};
 $string = "\x03\xff\xff";  # <-- uses the default construct
 is_deeply( $s->parse($string), $data, "Switch with pass: Parse: correct3");
 ok( $s->build($data) eq "\x03", "Switch with pass: Build: correct3");

@@ -280,11 +280,12 @@ sub IfThenElse {
 }
 
 sub If {
-    my ($predicate, $subcon, $elsevalue) = @_;
-    return IfThenElse($subcon->_get_name(), 
-        $predicate, 
-        $subcon, 
-        Value("elsevalue", sub { $elsevalue })
+    my ($predicate, $subcon) = @_;
+    return Switch($name, sub { &$predicate ? 1 : 0 },
+        {
+            1 => $then_subcon,
+        },
+        default => $DefaultPass,
     )
 }
 sub Peek { Data::ParseBinary::Peek->create(@_) }
