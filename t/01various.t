@@ -373,7 +373,7 @@ $s = Struct("foo",
     )
 );
 is_deeply( $s->parse("\x01hello"), {options => 'hello', has_options => 1 }, "If: Parse: True");
-is_deeply( $s->parse("\x00hello"), {options => undef, has_options => 0 }, "If: Parse: False");
+is_deeply( $s->parse("\x00hello"), { has_options => 0 }, "If: Parse: False");
 ok(( $s->build({options => undef, has_options => 0 }) eq "\0"), "If: Build: False");
 ok(( $s->build({options => 'hello', has_options => 1 }) eq "\x01hello"), "If: Build: True");
 
@@ -384,16 +384,16 @@ $s = Struct("foo",
         Bytes("Short Options", 3),
     ),
 );
-is_deeply( $s->parse("\x01hello"), {options => 'hello', long_options => 1 }, "IfThenElse: Parse: True");
-is_deeply( $s->parse("\x00hello"), {options => 'hel', long_options => 0 }, "IfThenElse: Parse: False");
-ok(( $s->build({options => 'hel', long_options => 0 }) eq "\0hel"), "IfThenElse: Build: False");
-ok(( $s->build({options => 'hello', long_options => 1 }) eq "\x01hello"), "IfThenElse: Build: True");
+is_deeply( $s->parse("\x01hello"), {options => { "Long Options" => 'hello' }, long_options => 1 }, "IfThenElse: Parse: True");
+is_deeply( $s->parse("\x00hello"), {options => { "Short Options" => 'hel'}, long_options => 0 }, "IfThenElse: Parse: False");
+ok(( $s->build({options => { "Short Options" => 'hel'}, long_options => 0 }) eq "\0hel"), "IfThenElse: Build: False");
+ok(( $s->build({options => { "Long Options" => 'hello'}, long_options => 1 }) eq "\x01hello"), "IfThenElse: Build: True");
 
 $s = Struct("foo",
     Flag("has_next"),
     If(sub { $_->ctx->{has_next} }, LazyBound("next", sub { $s })),
 );
-$data = { has_next => 1, next => { has_next => 1, next => { has_next => 1, next => { has_next => 0, next => undef } } } };
+$data = { has_next => 1, foo => { has_next => 1, foo => { has_next => 1, foo => { has_next => 0 } } } };
 $string = "\x01\x01\x01\x00";
 is_deeply( $s->parse($string), $data, "LazyBound: Parse: Correct");
 ok(( $s->build($data) eq $string), "LazyBound: Build: Correct");

@@ -1,6 +1,28 @@
-package Data::ParseBinary::RoughUnion;
+package Data::ParseBinary::IfConstruct;
 use strict;
 use warnings;
+our @ISA = qw{Data::ParseBinary::WrappingConstruct};
+
+sub create {
+    my ($class, $condition, $subcon) = @_;
+    my $self = $class->SUPER::create($subcon);
+    $self->{condition} = $condition;
+    return $self;
+}
+
+sub _parse {
+    my ($self, $parser, $stream, $hashref) = @_;
+    return unless $parser->runCodeRef($self->{condition});
+    $parser->_parse($self->{subcon}, $hashref);
+}
+
+sub _build {
+    my ($self, $parser, $stream, $data) = @_;
+    return unless $parser->runCodeRef($self->{condition});
+    return $parser->_build($self->{subcon}, $data);
+}
+
+package Data::ParseBinary::RoughUnion;
 our @ISA = qw{Data::ParseBinary::BaseConstruct};
 
 sub create {
@@ -282,11 +304,16 @@ package Data::ParseBinary::LazyBound;
 our @ISA = qw{Data::ParseBinary::BaseConstruct};
 
 sub create {
-    my ($class, $name, $boundfunc) = @_;
-    my $self = $class->SUPER::create($name);
-    $self->{bound} = undef;
-    $self->{boundfunc} = $boundfunc;
-    return $self;
+    my $class = shift;
+    shift if not ref $_[0]; # ignore name
+    my $boundfunc = shift;
+    my $self = { boundfunc => $boundfunc };
+    return bless $self, $class;
+}
+
+sub _get_name {
+    my $self = shift;
+    return $self->{boundfunc}->()->_get_name();
 }
 
 sub _parse {

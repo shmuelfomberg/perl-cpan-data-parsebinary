@@ -281,12 +281,7 @@ sub IfThenElse {
 
 sub If {
     my ($predicate, $subcon) = @_;
-    return Switch($name, sub { &$predicate ? 1 : 0 },
-        {
-            1 => $then_subcon,
-        },
-        default => $DefaultPass,
-    )
+    return Data::ParseBinary::IfConstruct->create($predicate, $subcon);
 }
 sub Peek { Data::ParseBinary::Peek->create(@_) }
 sub Const { Data::ParseBinary::ConstAdapter->create(@_) }
