@@ -167,7 +167,7 @@ sub _decode {
 
 sub _encode {
     my ($self, $tvalue) = @_;
-    if (not defined $self->_get_name()) {
+    if ($self->_get_name() eq '') {
         # if we don't have a name, then just use the value
         return $self->{value};
     }

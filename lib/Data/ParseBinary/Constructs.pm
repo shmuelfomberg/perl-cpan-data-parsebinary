@@ -363,8 +363,6 @@ sub _build {
 }
 
 sub _size_of {
-    my ($self, $context) = @_;
-    # the construct size is 0
     return 0;
 }
 

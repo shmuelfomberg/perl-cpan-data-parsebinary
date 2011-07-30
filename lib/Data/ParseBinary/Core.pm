@@ -11,6 +11,7 @@ my $OBJECT_STACK = "OBJECT_STACK";
 
 sub create {
     my ($class, $name) = @_;
+    $name = '' unless defined $name;
     return bless { Name => $name }, $class;
 }
 
